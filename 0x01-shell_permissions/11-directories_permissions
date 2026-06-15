@@ -1,2 +1,38 @@
 #!/bin/bash
-chmod a+X *
+
+# Grant execute permission to all directories (including hidden ones)
+# under the current working directory, recursively.
+# Regular files, symlinks, and other non-directory entries are not touched.
+
+# Iterative approach: after chmod'ing discovered directories, re-scan
+# to find any newly accessible subdirectories. This handles the case
+# where a parent directory lacks execute permission, preventing find
+# from descending into it on the first pass.
+
+prev_count=0
+
+while true; do
+    # Find phase: collect all currently accessible directories
+    dirs=()
+    while IFS= read -r -d '' entry; do
+        dirs+=("$entry")
+    done < <(find . -type d -print0 2>/dev/null)
+
+    curr_count=${#dirs[@]}
+
+    # If no new directories were discovered, we are done
+    if [ "$curr_count" -eq "$prev_count" ]; then
+        break
+    fi
+    prev_count=$curr_count
+
+    # Chmod phase: add execute permission to each directory
+    for d in "${dirs[@]}"; do
+        if [ -d "$d" ]; then
+            chmod a+x "$d" 2>/dev/null
+            if [ $? -ne 0 ]; then
+                echo "Error: chmod phase failed on '$d'" >&2
+            fi
+        fi
+    done
+done
