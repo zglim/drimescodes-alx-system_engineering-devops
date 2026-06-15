@@ -1,2 +1,69 @@
 #!/bin/bash
-find . -empty | rev | cut -d '/' -f 1 | rev
+# Finds empty files and/or empty directories.
+# Usage: 100-empty_casks [-t f|d|a] [-p] [directory]
+#   -t TYPE   Filter type: f = files only, d = dirs only, a = all (default: a)
+#   -p        Output full relative path instead of basename
+#   directory Target directory to scan (default: current directory)
+
+TYPE="a"
+FULLPATH=0
+
+while getopts "t:ph" opt; do
+    case "$opt" in
+        t)
+            TYPE="$OPTARG"
+            if [ "$TYPE" != "f" ] && [ "$TYPE" != "d" ] && [ "$TYPE" != "a" ]; then
+                echo "Error: -t must be 'f' (files), 'd' (dirs), or 'a' (all)" >&2
+                exit 1
+            fi
+            ;;
+        p)
+            FULLPATH=1
+            ;;
+        h)
+            echo "Usage: $0 [-t f|d|a] [-p] [directory]"
+            echo "  -t TYPE   f=files only, d=dirs only, a=all (default: a)"
+            echo "  -p        Show full relative path instead of basename"
+            echo "  directory Directory to scan (default: .)"
+            exit 0
+            ;;
+        *)
+            echo "Usage: $0 [-t f|d|a] [-p] [directory]" >&2
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+TARGET="${1:-.}"
+
+if [ ! -e "$TARGET" ]; then
+    echo "Error: '$TARGET' does not exist" >&2
+    exit 1
+fi
+
+if [ ! -d "$TARGET" ]; then
+    echo "Error: '$TARGET' is not a directory" >&2
+    exit 1
+fi
+
+if [ ! -r "$TARGET" ]; then
+    echo "Error: '$TARGET' is not readable" >&2
+    exit 1
+fi
+
+# Build find expression based on type filter
+case "$TYPE" in
+    f) TYPE_EXPR="-type f" ;;
+    d) TYPE_EXPR="-type d" ;;
+    a) TYPE_EXPR="" ;;
+esac
+
+# Find empty entries, exclude the target directory itself (. or the given path)
+find "$TARGET" -mindepth 1 -empty $TYPE_EXPR -print | while IFS= read -r path; do
+    if [ "$FULLPATH" -eq 1 ]; then
+        echo "$path"
+    else
+        basename "$path"
+    fi
+done | sort
