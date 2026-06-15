@@ -1,2 +1,12 @@
 #!/bin/bash
-chmod a+X *
+# Add execute permission to all directories (recursively, including hidden)
+# under the current working directory. Regular files and symlinks are not touched.
+
+# Phase 1: Find all directories; Phase 2: Change permissions
+# Using -type d to exclude files and symlinks; find naturally recurses and includes dotdirs.
+find . -type d -exec chmod a+x {} + 2>&1 | while IFS= read -r line; do
+    echo "chmod error: $line" >&2
+done
+
+# Propagate find's exit status (not the pipe's)
+exit "${PIPESTATUS[0]}"
