@@ -1,2 +1,95 @@
 #!/bin/bash
-find . -empty | rev | cut -d '/' -f 1 | rev
+# empty_casks - Find empty files and empty directories
+#
+# Usage: 100-empty_casks [TARGET_DIR] [-t TYPE] [-p]
+#
+#   TARGET_DIR   Directory to scan (default: current directory)
+#   -t TYPE      Filter type: files | dirs | all (default: all)
+#   -p           Output full relative paths instead of basenames
+
+usage() {
+    echo "Usage: $0 [TARGET_DIR] [-t TYPE] [-p]"
+    echo "  TARGET_DIR  Directory to scan (default: .)"
+    echo "  -t TYPE     files | dirs | all (default: all)"
+    echo "  -p          Print full relative paths instead of basenames"
+    exit 1
+}
+
+TARGET_DIR="."
+FILTER="all"
+FULL_PATH=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -t)
+            [[ -z "$2" ]] && { echo "Error: -t requires an argument (files|dirs|all)" >&2; exit 1; }
+            FILTER="$2"
+            shift 2
+            ;;
+        -p)
+            FULL_PATH=1
+            shift
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo "Error: Unknown option: $1" >&2
+            exit 1
+            ;;
+        *)
+            if [[ "$TARGET_DIR" = "." ]]; then
+                TARGET_DIR="$1"
+                shift
+            else
+                echo "Error: Unexpected argument: $1" >&2
+                exit 1
+            fi
+            ;;
+    esac
+done
+
+# Validate filter
+case "$FILTER" in
+    files|dirs|all) ;;
+    *) echo "Error: Invalid type '$FILTER'. Use files, dirs, or all." >&2; exit 1 ;;
+esac
+
+# Validate target directory
+if [[ ! -e "$TARGET_DIR" ]]; then
+    echo "Error: Directory '$TARGET_DIR' does not exist." >&2
+    exit 1
+fi
+if [[ ! -d "$TARGET_DIR" ]]; then
+    echo "Error: '$TARGET_DIR' is not a directory." >&2
+    exit 1
+fi
+if [[ ! -r "$TARGET_DIR" ]]; then
+    echo "Error: Directory '$TARGET_DIR' is not readable." >&2
+    exit 1
+fi
+
+# Build find arguments
+FIND_ARGS=()
+case "$FILTER" in
+    files) FIND_ARGS=(-type f -empty) ;;
+    dirs)  FIND_ARGS=(-type d -empty) ;;
+    all)   FIND_ARGS=( \( -type f -o -type d \) -empty ) ;;
+esac
+
+# Run find, exclude . and .., strip leading ./ for clean relative paths, sort
+results=$(find "$TARGET_DIR" "${FIND_ARGS[@]}" 2>/dev/null \
+    | sed 's|^\./||' \
+    | grep -v '^\.\.\?$' \
+    | sort)
+
+[[ -z "$results" ]] && exit 0
+
+if [[ $FULL_PATH -eq 1 ]]; then
+    echo "$results"
+else
+    echo "$results" | while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        basename "$line"
+    done
+fi
