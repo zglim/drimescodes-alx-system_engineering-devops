@@ -1,2 +1,5 @@
 #!/bin/bash
-PATH="$PATH:/action"
+case ":$PATH:" in
+  *":/action:"*) ;;
+  *) PATH="$PATH:/action" ;;
+esac
