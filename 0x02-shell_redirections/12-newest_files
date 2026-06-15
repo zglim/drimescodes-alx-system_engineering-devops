@@ -1,2 +1,47 @@
 #!/bin/bash
-ls -t1 | head -n 10
+
+# newest_files - List the newest files/directories by modification time
+#
+# Usage: newest_files [-n COUNT] [-d DIR] [-a]
+#   -n COUNT   Number of entries to display (default: 10)
+#   -d DIR     Target directory (default: current directory)
+#   -a         Include hidden files/directories
+
+COUNT=10
+DIR="."
+SHOW_HIDDEN=0
+
+while getopts "n:d:a" opt; do
+    case "$opt" in
+        n) COUNT="$OPTARG" ;;
+        d) DIR="$OPTARG" ;;
+        a) SHOW_HIDDEN=1 ;;
+        *) echo "Usage: $0 [-n COUNT] [-d DIR] [-a]" >&2; exit 1 ;;
+    esac
+done
+
+# Validate count is a positive integer
+if ! [[ "$COUNT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Error: count must be a positive integer, got '$COUNT'" >&2
+    exit 1
+fi
+
+# Validate directory exists and is readable
+if [ ! -d "$DIR" ]; then
+    echo "Error: directory '$DIR' does not exist" >&2
+    exit 1
+fi
+
+if [ ! -r "$DIR" ]; then
+    echo "Error: directory '$DIR' is not readable" >&2
+    exit 1
+fi
+
+# Build ls command
+LS_OPTS="-t1"
+if [ "$SHOW_HIDDEN" -eq 1 ]; then
+    LS_OPTS="-t1A"
+fi
+
+# List files sorted by modification time (newest first), no recursion
+ls $LS_OPTS -- "$DIR" | head -n "$COUNT"
