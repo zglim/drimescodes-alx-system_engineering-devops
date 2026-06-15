@@ -1,2 +1,45 @@
 #!/bin/bash
-ls -t1 | head -n 10
+# Newest files viewer — lists entries in a directory sorted by modification time (newest first).
+# Usage: 12-newest_files [-n COUNT] [-d DIR] [-a]
+#   -n COUNT  Number of entries to display (default: 10)
+#   -d DIR    Target directory (default: current directory)
+#   -a        Include hidden files/directories
+
+COUNT=10
+DIR="."
+SHOW_HIDDEN=false
+
+while getopts ":n:d:a" opt; do
+  case "$opt" in
+    n) COUNT="$OPTARG" ;;
+    d) DIR="$OPTARG" ;;
+    a) SHOW_HIDDEN=true ;;
+    \?) echo "Error: Unknown option -$OPTARG" >&2; exit 1 ;;
+    :)  echo "Error: Option -$OPTARG requires an argument" >&2; exit 1 ;;
+  esac
+done
+
+# Validate count
+if ! [[ "$COUNT" =~ ^[0-9]+$ ]] || [ "$COUNT" -le 0 ]; then
+  echo "Error: Count must be a positive integer, got '$COUNT'" >&2
+  exit 1
+fi
+
+# Validate directory
+if [ ! -d "$DIR" ]; then
+  echo "Error: Directory '$DIR' does not exist" >&2
+  exit 1
+fi
+
+if [ ! -r "$DIR" ]; then
+  echo "Error: Directory '$DIR' is not readable" >&2
+  exit 1
+fi
+
+# Build ls command
+LS_OPTS="-t1"
+if [ "$SHOW_HIDDEN" = true ]; then
+  LS_OPTS="-t1A"
+fi
+
+ls $LS_OPTS "$DIR" | head -n "$COUNT"
